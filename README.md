@@ -33,6 +33,25 @@ An agent presents its credential as a standard `Authorization: Bearer <credentia
 
 If you'd rather not use the Express middleware, call `hapi.verify(credential, action)` and `hapi.getProfile(credential, fields)` directly — `requireGrant` is a thin convenience wrapper over both. If you need to check a credential *conditionally* instead of unconditionally requiring one (e.g. a page that also accepts a normal logged-in session), use the lower-level `getCredentialFromRequest(req)` that `requireGrant` uses internally — same convention, without the automatic 401.
 
+## Letting an agent discover where to go
+
+An agent given a generic instruction ("apply for this job") has to find your `requireGrant`-protected route by browsing — and without a human login, it'll only ever find your human login wall, correctly refuse to work around it, and give up. `hapiDiscovery` fixes that: mount it once, before your other routes, and it makes the site discoverable from *any* page the agent lands on, not just one you happen to document:
+
+```ts
+import { hapiDiscovery } from "@hapi-id/sdk";
+
+app.use(
+  hapiDiscovery({
+    partnerName: "Acme Jobs",
+    routes: [
+      { path: "/apply", method: "POST", scope: "job_application:submit", description: "Submit a job application" },
+    ],
+  })
+);
+```
+
+This does two things on every single response, including 404s: sets the standard HTTP `Link` header (RFC 8288) pointing at a discovery document, and serves that document at `/.well-known/hapi.json` (RFC 8615) — listing every agent-accessible route, its required scope, and that credentials go in a standard `Authorization: Bearer` header. An agent that only ever reaches your 404 page or your human login screen still gets the signal that there's another way in.
+
 ## Linking an existing account
 
 `verify`/`getProfile` cover agents acting on *new* flows your site builds for them. If a user already has an account with you from before they connected HAPI, a credential alone doesn't tell you which of your accounts it belongs to — you need a one-time confirmation first:
