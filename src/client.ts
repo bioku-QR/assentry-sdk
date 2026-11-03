@@ -36,12 +36,14 @@ export class HAPI {
   }
 
   /**
-   * Verifies a credential an agent presented, for a specific action/scope.
-   * Always re-checks HAPI's authorisation service — never trust the agent's
-   * claim alone.
+   * Verifies a credential an agent presented. Always re-checks HAPI's
+   * authorisation service — never trust the agent's claim alone. A valid
+   * result means the grant is current (not revoked/expired); there's no
+   * separate per-action scope check for now — see getProfile for the one
+   * remaining restriction (which data fields may be disclosed).
    */
-  async verify(credential: string, action: string): Promise<VerifyResult> {
-    return this.request<VerifyResult>("/verify", { credential, action });
+  async verify(credential: string): Promise<VerifyResult> {
+    return this.request<VerifyResult>("/verify", { credential });
   }
 
   /**

@@ -1,12 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
 
 export interface HAPIDiscoveryRoute {
-  /** Path the route is mounted at, e.g. "/apply". */
+  /** Path the route is mounted at, e.g. "/dashboard". */
   path: string;
   /** HTTP method an agent should use to reach it. */
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-  /** The HAPI grant scope this route is gated on — matches the `action` passed to `requireGrant`. */
-  scope: string;
   /** A short description of what this route does, for an agent deciding where to go. */
   description: string;
 }
@@ -34,10 +32,10 @@ const WELL_KNOWN_PATH = "/.well-known/hapi.json";
  *    agent doesn't need to already be on a particular page to find it; it's
  *    on whatever page it landed on first.
  * 2. Serves `/.well-known/hapi.json` (RFC 8615) itself: every
- *    `requireGrant`-protected route on the site, its scope, and exactly how
- *    to present a credential — so an agent that only has a generic
- *    instruction ("apply for this job") can find its own way to the right
- *    endpoint instead of hitting a human login wall with no way through.
+ *    `requireGrant`-protected route on the site and exactly how to present
+ *    a credential — so an agent that only has a generic instruction can
+ *    find its own way to the right endpoint instead of hitting a human
+ *    login wall with no way through.
  */
 export function hapiDiscovery(options: HAPIDiscoveryOptions) {
   const document = {
