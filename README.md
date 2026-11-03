@@ -19,17 +19,23 @@ const hapi = new HAPI({ apiKey: process.env.HAPI_API_KEY! });
 const app = express();
 app.use(express.json());
 
-app.post("/apply", requireGrant(hapi), async (req: HAPIRequest, res) => {
-  const profile = await hapi.getProfile(req.hapiCredential!, ["name", "email", "resume"]);
-  if (!profile.valid) return res.status(403).json({ error: profile.reason });
+app.post(
+  "/apply",
+  requireGrant(hapi, {
+    discover: { path: "/apply", method: "POST", description: "Submit a job application" },
+  }),
+  async (req: HAPIRequest, res) => {
+    const profile = await hapi.getProfile(req.hapiCredential!, ["name", "email", "resume"]);
+    if (!profile.valid) return res.status(403).json({ error: profile.reason });
 
-  // req.hapiGrant has { userId, agentId, expiresAt }; profile.profile has
-  // only the fields the user actually consented to disclose for this grant.
-  res.json({ status: "submitted", applicant: profile.profile });
-});
+    // req.hapiGrant has { userId, agentId, expiresAt }; profile.profile has
+    // only the fields the user actually consented to disclose for this grant.
+    res.json({ status: "submitted", applicant: profile.profile });
+  }
+);
 ```
 
-An agent presents its credential as a standard `Authorization: Bearer <credential>` header — `requireGrant` expects this by default, which matters: it's the convention any reasonably capable agent will already use without needing a site-specific instruction, so there's nothing for you to document or for an agent to guess.
+An agent presents its credential as a standard `Authorization: Bearer <credential>` header — `requireGrant` expects this by default, which matters: it's the convention any reasonably capable agent will already use without needing a site-specific instruction, so there's nothing for you to document or for an agent to guess. When no credential is presented, `requireGrant` responds with a standard `401` plus a `WWW-Authenticate: Bearer` header — the HTTP-native "send a credential" challenge, not a site-specific one.
 
 A valid grant means the agent may act for the person who issued it — there's no separate per-action scope check for now, only `getProfile`'s existing per-field consent. If you need a route to only be reachable by certain grants, that's on your own application logic for the moment, same as any other authorization decision your site makes.
 
@@ -42,15 +48,28 @@ An agent given a generic instruction has to find your `requireGrant`-protected r
 ```ts
 import { hapiDiscovery } from "@hapi-id/sdk";
 
-app.use(
-  hapiDiscovery({
-    partnerName: "Acme Jobs",
-    routes: [{ path: "/apply", method: "POST", description: "Submit a job application" }],
-  })
-);
+app.use(hapiDiscovery({ partnerName: "Acme Jobs" }));
 ```
 
 This does two things on every single response, including 404s: sets the standard HTTP `Link` header (RFC 8288) pointing at a discovery document, and serves that document at `/.well-known/hapi.json` (RFC 8615) — listing every agent-accessible route and that credentials go in a standard `Authorization: Bearer` header. An agent that only ever reaches your 404 page or your human login screen still gets the signal that there's another way in.
+
+There's no `routes` list to pass in here — a route becomes discoverable by stating it once, right where it's defined: either via `requireGrant`'s `discover` option (above), or, for a route that can't use `requireGrant` directly (e.g. one that also accepts a normal session), by calling `declareDiscoverableRoute` once at startup:
+
+```ts
+import { declareDiscoverableRoute, getCredentialFromRequest } from "@hapi-id/sdk";
+
+declareDiscoverableRoute({ path: "/dashboard", method: "GET", description: "View protected content" });
+
+app.get("/dashboard", async (req, res) => {
+  if (req.session?.user) return res.send(renderDashboard(req.session.user));
+
+  const credential = getCredentialFromRequest(req);
+  if (!credential) return res.redirect("/login");
+  // ...verify the credential yourself, same as requireGrant does internally
+});
+```
+
+Either way, there's nothing to keep in sync by hand — the discovery document always reflects whatever's actually been declared as protected, not a separate list that can drift out of date.
 
 ## Linking an existing account
 
