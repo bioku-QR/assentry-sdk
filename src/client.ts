@@ -1,6 +1,6 @@
 import type { LinkTokenResult, ProfileResult, VerifyResult } from "./types";
 
-export class HAPIRequestError extends Error {
+export class AssentryRequestError extends Error {
   status: number;
   constructor(message: string, status: number) {
     super(message);
@@ -8,9 +8,9 @@ export class HAPIRequestError extends Error {
   }
 }
 
-export interface HAPIOptions {
+export interface AssentryOptions {
   apiKey: string;
-  /** HAPI API origin. Defaults to the local dev server. */
+  /** Assentry API origin. Defaults to the local dev server. */
   baseUrl?: string;
   /**
    * Your partner `publicId` — safe to put in a browser-facing URL, unlike
@@ -20,23 +20,23 @@ export interface HAPIOptions {
 }
 
 /**
- * Server-side client for the HAPI partner handshake. Never put the API key
- * in frontend code — this talks to HAPI from your backend, the same way
+ * Server-side client for the Assentry partner handshake. Never put the API key
+ * in frontend code — this talks to Assentry from your backend, the same way
  * you'd use a Stripe secret key.
  */
-export class HAPI {
+export class Assentry {
   private readonly apiKey: string;
   private readonly baseUrl: string;
   private readonly partnerId?: string;
 
-  constructor(options: HAPIOptions) {
+  constructor(options: AssentryOptions) {
     this.apiKey = options.apiKey;
     this.baseUrl = (options.baseUrl ?? "http://localhost:4000").replace(/\/$/, "");
     this.partnerId = options.partnerId;
   }
 
   /**
-   * Verifies a credential an agent presented. Always re-checks HAPI's
+   * Verifies a credential an agent presented. Always re-checks Assentry's
    * authorisation service — never trust the agent's claim alone. A valid
    * result means the grant is current (not revoked/expired); there's no
    * separate per-action scope check for now — see getProfile for the one
@@ -57,13 +57,13 @@ export class HAPI {
 
   /**
    * Builds the URL to send an *already-logged-in* user of yours to, so they
-   * can confirm their HAPI identity matches their existing account with
+   * can confirm their Assentry identity matches their existing account with
    * you. Requires `partnerId` to have been passed to the constructor.
    * See `exchangeLinkCode` for the other half of this flow.
    */
   getAccountLinkUrl(params: { redirectUri: string; state?: string }): string {
     if (!this.partnerId) {
-      throw new Error("HAPI client was constructed without a partnerId — required for getAccountLinkUrl");
+      throw new Error("Assentry client was constructed without a partnerId — required for getAccountLinkUrl");
     }
     const qs = new URLSearchParams({
       partner_id: this.partnerId,
@@ -74,7 +74,7 @@ export class HAPI {
   }
 
   /**
-   * Exchanges the one-time code your redirect_uri received for the HAPI
+   * Exchanges the one-time code your redirect_uri received for the Assentry
    * `userId` to store against your own account record. After this, a
    * credential that resolves to that `userId` is proof of *this specific*
    * existing account — no password involved at any point.
@@ -88,18 +88,18 @@ export class HAPI {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-hapi-api-key": this.apiKey,
+        "x-assentry-api-key": this.apiKey,
       },
       body: JSON.stringify(body),
     });
 
     if (res.status === 401) {
-      throw new HAPIRequestError("invalid HAPI api key", 401);
+      throw new AssentryRequestError("invalid Assentry api key", 401);
     }
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: unknown };
-      throw new HAPIRequestError(
-        typeof data?.error === "string" ? data.error : `HAPI request failed (${res.status})`,
+      throw new AssentryRequestError(
+        typeof data?.error === "string" ? data.error : `Assentry request failed (${res.status})`,
         res.status
       );
     }

@@ -1,17 +1,17 @@
 import type { NextFunction, Request, Response } from "express";
-import type { HAPI } from "./client";
+import type { Assentry } from "./client";
 import { declareDiscoverableRoute, type DiscoverableRoute } from "./discovery";
 
-export interface HAPIGrant {
+export interface AssentryGrant {
   userId: string;
   agentId: string;
   expiresAt: string;
 }
 
-export interface HAPIRequest extends Request {
-  hapiGrant?: HAPIGrant;
+export interface AssentryRequest extends Request {
+  assentryGrant?: AssentryGrant;
   /** The raw credential the agent presented — reuse it for a /profile pull. */
-  hapiCredential?: string;
+  assentryCredential?: string;
 }
 
 export interface RequireGrantOptions {
@@ -24,7 +24,7 @@ export interface RequireGrantOptions {
   credentialHeader?: string;
   /**
    * How this route should appear in the site's discovery document (see
-   * `hapiDiscovery`) — stated once, right here, so there's no separate list
+   * `assentryDiscovery`) — stated once, right here, so there's no separate list
    * elsewhere to keep in sync. Omit to keep this route out of discovery.
    */
   discover?: DiscoverableRoute;
@@ -49,8 +49,8 @@ export function getCredentialFromRequest(req: Request, options: RequireGrantOpti
 }
 
 /**
- * Express middleware gating a route on a valid HAPI grant. On success,
- * attaches `req.hapiGrant` and calls next(); on failure, the agent is
+ * Express middleware gating a route on a valid Assentry grant. On success,
+ * attaches `req.assentryGrant` and calls next(); on failure, the agent is
  * treated exactly like any other unauthenticated request — your normal
  * fallback flow (login, CAPTCHA, manual signup) still applies.
  *
@@ -59,29 +59,29 @@ export function getCredentialFromRequest(req: Request, options: RequireGrantOpti
  * challenge almost any HTTP-aware client or agent already recognises,
  * rather than a site-specific convention.
  */
-export function requireGrant(hapi: HAPI, options: RequireGrantOptions = {}) {
+export function requireGrant(assentry: Assentry, options: RequireGrantOptions = {}) {
   if (options.discover) {
     declareDiscoverableRoute(options.discover);
   }
 
-  return async (req: HAPIRequest, res: Response, next: NextFunction) => {
+  return async (req: AssentryRequest, res: Response, next: NextFunction) => {
     const credential = getCredentialFromRequest(req, options);
     if (!credential) {
-      res.setHeader("WWW-Authenticate", 'Bearer realm="HAPI"');
-      return res.status(401).json({ error: "missing HAPI credential" });
+      res.setHeader("WWW-Authenticate", 'Bearer realm="Assentry"');
+      return res.status(401).json({ error: "missing Assentry credential" });
     }
 
-    const result = await hapi.verify(credential);
+    const result = await assentry.verify(credential);
     if (!result.valid) {
       return res.status(403).json({ error: "not authorised", reason: result.reason });
     }
 
-    req.hapiGrant = {
+    req.assentryGrant = {
       userId: result.userId,
       agentId: result.agentId,
       expiresAt: result.expiresAt,
     };
-    req.hapiCredential = credential;
+    req.assentryCredential = credential;
     next();
   };
 }
