@@ -19,18 +19,18 @@ const assentry = new Assentry({ apiKey: process.env.ASSENTRY_API_KEY! });
 const app = express();
 app.use(express.json());
 
-app.post(
-  "/apply",
+app.get(
+  "/account",
   requireGrant(assentry, {
-    discover: { path: "/apply", method: "POST", description: "Submit a job application" },
+    discover: { path: "/account", method: "GET", description: "View the person's account" },
   }),
   async (req: AssentryRequest, res) => {
-    const profile = await assentry.getProfile(req.assentryCredential!, ["name", "email", "resume"]);
+    const profile = await assentry.getProfile(req.assentryCredential!, ["name", "email"]);
     if (!profile.valid) return res.status(403).json({ error: profile.reason });
 
     // req.assentryGrant has { userId, agentId, expiresAt }; profile.profile has
     // only the fields the user actually consented to disclose for this grant.
-    res.json({ status: "submitted", applicant: profile.profile });
+    res.json({ account: profile.profile });
   }
 );
 ```
@@ -48,7 +48,7 @@ An agent given a generic instruction has to find your `requireGrant`-protected r
 ```ts
 import { assentryDiscovery } from "@assentry/sdk";
 
-app.use(assentryDiscovery({ partnerName: "Acme Jobs" }));
+app.use(assentryDiscovery({ partnerName: "Acme" }));
 ```
 
 This does two things on every single response, including 404s: sets the standard HTTP `Link` header (RFC 8288) pointing at a discovery document, and serves that document at `/.well-known/assentry.json` (RFC 8615) — listing every agent-accessible route and that credentials go in a standard `Authorization: Bearer` header. An agent that only ever reaches your 404 page or your human login screen still gets the signal that there's another way in.

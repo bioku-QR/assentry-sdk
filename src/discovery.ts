@@ -42,7 +42,7 @@ const WELL_KNOWN_PATH = "/.well-known/assentry.json";
  * page — not just a login page or a docs link the agent happens to find.
  * Mount this once, before your other routes:
  *
- *   app.use(assentryDiscovery({ partnerName: "Acme Jobs" }));
+ *   app.use(assentryDiscovery({ partnerName: "Acme" }));
  *
  * It does two things, on every single request:
  *
