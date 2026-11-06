@@ -61,6 +61,22 @@ export class Assentry {
   }
 
   /**
+   * Fetches this app's domain-verification token, which the site serves at
+   * /.well-known/assentry-domain-verification so Assentry can confirm you
+   * control the domain set for this app. `assentryDiscovery({ assentry })`
+   * serves it for you. Returns null if the app has no domain set.
+   */
+  async getDomainVerificationToken(): Promise<string | null> {
+    const res = await fetch(`${this.baseUrl}/domain-verification`, {
+      headers: { "x-assentry-api-key": this.apiKey },
+    });
+    if (res.status === 404) return null;
+    if (!res.ok) throw new AssentryRequestError(`Assentry request failed (${res.status})`, res.status);
+    const data = (await res.json()) as { token: string };
+    return data.token;
+  }
+
+  /**
    * Starts a browser-agent sign-in: Assentry returns a short code for your
    * page to show. The agent approves it through its own Assentry connection,
    * never by typing into your site. Throws if Assentry can't be reached.

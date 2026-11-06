@@ -148,7 +148,7 @@ function signInBlock(code: string): string {
   return `<meta name="assentry-sign-in-code" content="${code}">
 <div ${MARKER} style="margin:32px auto 16px;max-width:640px;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font:14px -apple-system,system-ui,sans-serif;color:#333;text-align:center">
 AI agent acting for someone? <strong>Assentry sign-in code: ${code}</strong><br>
-<span style="color:#666;font-size:13px">Approve it through your Assentry connection; this page continues by itself. Never type a credential here.</span>
+<span style="color:#666;font-size:13px">Approve it through your Assentry connection, with this site&#39;s domain from the address bar; this page continues by itself. Never type a credential here.</span>
 <span id="assentry-sign-in-state" style="display:block;color:#666;font-size:13px"></span>
 </div>
 <script>(function(){var from=location.pathname,s=document.getElementById("assentry-sign-in-state");

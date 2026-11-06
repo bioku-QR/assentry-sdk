@@ -54,6 +54,7 @@ export interface AssentryDiscoveryOptions {
 }
 
 const WELL_KNOWN_PATH = "/.well-known/assentry.json";
+const DOMAIN_VERIFICATION_PATH = "/.well-known/assentry-domain-verification";
 
 /**
  * Makes a site discoverable to an AI agent from the moment it reaches *any*
@@ -101,7 +102,7 @@ export function assentryDiscovery(options: AssentryDiscoveryOptions) {
                 code_header: CODE_HEADER,
                 sign_out_path: SIGN_OUT_PATH,
                 instructions:
-                  "If you're driving a browser, pages show an 'Assentry sign-in code'. Approve it with your Assentry connection's approve_sign_in tool; the page then signs you in by itself. Never type a credential into this site.",
+                  "If you're driving a browser, pages show an 'Assentry sign-in code'. Approve it with your Assentry connection's approve_sign_in tool, passing this site's domain from the address bar; the page then signs you in by itself. Never type a credential into this site.",
               },
             }
           : {}),
@@ -111,6 +112,19 @@ export function assentryDiscovery(options: AssentryDiscoveryOptions) {
     }
 
     if (!assentry) return next();
+
+    // Proves to Assentry that whoever holds this app's API key also controls
+    // this domain. Assentry fetches it when the developer clicks "Verify".
+    if (req.path === DOMAIN_VERIFICATION_PATH) {
+      try {
+        const token = await assentry.getDomainVerificationToken();
+        if (!token) return res.status(404).type("text").send("no domain set for this Assentry app");
+        res.setHeader("Cache-Control", "no-store");
+        return res.type("text").send(token);
+      } catch (err) {
+        return next(err);
+      }
+    }
 
     try {
       const protectedPaths = Array.from(registry.values()).map((r) => r.path);
