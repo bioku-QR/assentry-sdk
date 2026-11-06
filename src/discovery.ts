@@ -1,4 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
+import type { Assentry } from "./client";
+import { handleBrowserSignIn, injectAgentNotice, SIGN_IN_PATH, SIGN_OUT_PATH } from "./browser";
 
 export interface DiscoverableRoute {
   /** Path the route is mounted at, e.g. "/dashboard". */
@@ -33,6 +35,19 @@ export function declareDiscoverableRoute(route: DiscoverableRoute): void {
 export interface AssentryDiscoveryOptions {
   /** This site's display name, shown in the discovery document. */
   partnerName: string;
+  /**
+   * Your Assentry client. Pass it to let browser-driving agents in too: it
+   * serves a sign-in page at /assentry/sign-in where an agent pastes its
+   * credential once, and adds a short visible "Sign in with Assentry" line
+   * to your HTML pages so those agents can find it. Without it, only agents
+   * that send an Authorization header can get in.
+   */
+  assentry?: Assentry;
+  /**
+   * Set false to keep the visible notice off your pages (the sign-in page
+   * still works). Defaults to true when `assentry` is given.
+   */
+  showAgentNotice?: boolean;
 }
 
 const WELL_KNOWN_PATH = "/.well-known/assentry.json";
@@ -61,7 +76,10 @@ const WELL_KNOWN_PATH = "/.well-known/assentry.json";
  * this always reflects whatever's actually been registered as protected.
  */
 export function assentryDiscovery(options: AssentryDiscoveryOptions) {
-  return (req: Request, res: Response, next: NextFunction) => {
+  const browser = options.assentry;
+  const showNotice = browser !== undefined && options.showAgentNotice !== false;
+
+  return async (req: Request, res: Response, next: NextFunction) => {
     res.setHeader("Link", `<${WELL_KNOWN_PATH}>; rel="assentry-agent-discovery"`);
     if (req.path === WELL_KNOWN_PATH) {
       res.json({
@@ -75,9 +93,33 @@ export function assentryDiscovery(options: AssentryDiscoveryOptions) {
           instructions:
             "Present the Assentry credential your grant issued as 'Authorization: Bearer <credential>' on the routes below. No login, session or signup is needed or should be attempted.",
         },
+        ...(browser
+          ? {
+              browser_sign_in: {
+                path: SIGN_IN_PATH,
+                sign_out_path: SIGN_OUT_PATH,
+                instructions:
+                  "If you are driving a browser and can't set headers, open this page, paste the credential into the form and submit. You'll be signed in until the person's permission ends.",
+              },
+            }
+          : {}),
         routes: Array.from(registry.values()),
       });
       return;
+    }
+
+    if (browser) {
+      try {
+        const defaultReturnTo = registry.values().next().value?.path ?? "/";
+        const handled = await handleBrowserSignIn(req, res, browser, {
+          partnerName: options.partnerName,
+          defaultReturnTo,
+        });
+        if (handled) return;
+      } catch (err) {
+        return next(err);
+      }
+      if (showNotice) injectAgentNotice(req, res);
     }
     next();
   };

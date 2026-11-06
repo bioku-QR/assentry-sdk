@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import type { Assentry } from "./client";
+import { readCredentialCookie } from "./browser";
 import { declareDiscoverableRoute, type DiscoverableRoute } from "./discovery";
 
 export interface AssentryGrant {
@@ -32,7 +33,8 @@ export interface RequireGrantOptions {
 
 /**
  * Reads the credential a request is carrying, using the standard
- * `Authorization: Bearer` convention by default. Exported on its own (not
+ * `Authorization: Bearer` convention by default, or the cookie set when a
+ * browser agent signed in on the SDK's /assentry/sign-in page. Exported on its own (not
  * just used internally by `requireGrant`) for routes that need to check a
  * credential *conditionally* — e.g. a page that also accepts a normal
  * logged-in session, where you don't want to unconditionally reject
@@ -41,11 +43,12 @@ export interface RequireGrantOptions {
 export function getCredentialFromRequest(req: Request, options: RequireGrantOptions = {}): string | null {
   if (options.credentialHeader) {
     const value = req.headers[options.credentialHeader.toLowerCase()];
-    return typeof value === "string" ? value : null;
+    return typeof value === "string" ? value : readCredentialCookie(req);
   }
   const auth = req.headers.authorization;
   if (auth?.startsWith("Bearer ")) return auth.slice("Bearer ".length);
-  return null;
+  // A browser agent that signed in at /assentry/sign-in carries it as a cookie.
+  return readCredentialCookie(req);
 }
 
 /**

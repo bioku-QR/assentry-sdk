@@ -41,18 +41,33 @@ export class Assentry {
    * result means the grant is current (not revoked/expired); there's no
    * separate per-action scope check for now — see getProfile for the one
    * remaining restriction (which data fields may be disclosed).
+   *
+   * Never throws: if Assentry can't be reached or rejects your API key, this
+   * returns `{ valid: false, reason: "assentry_unavailable" }` (and logs the
+   * cause), so the request is simply denied rather than crashing your route.
    */
   async verify(credential: string): Promise<VerifyResult> {
-    return this.request<VerifyResult>("/verify", { credential });
+    return this.denyOnFailure(() => this.request<VerifyResult>("/verify", { credential }));
   }
 
   /**
    * Pulls only the profile fields the user actually consented to disclose
    * for this grant. Requesting a field the user didn't consent to simply
-   * omits it from the response rather than erroring.
+   * omits it from the response rather than erroring. Like `verify`, never
+   * throws — failures come back as `reason: "assentry_unavailable"`.
    */
   async getProfile(credential: string, fields: string[]): Promise<ProfileResult> {
-    return this.request<ProfileResult>("/profile", { credential, fields });
+    return this.denyOnFailure(() => this.request<ProfileResult>("/profile", { credential, fields }));
+  }
+
+  private async denyOnFailure<T>(call: () => Promise<T>): Promise<T | { valid: false; reason: "assentry_unavailable" }> {
+    try {
+      return await call();
+    } catch (err) {
+      const why = err instanceof Error ? err.message : String(err);
+      console.error(`[assentry] request failed, denying: ${why}`);
+      return { valid: false, reason: "assentry_unavailable" };
+    }
   }
 
   /**

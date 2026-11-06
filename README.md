@@ -71,6 +71,24 @@ app.get("/dashboard", async (req, res) => {
 
 Either way, there's nothing to keep in sync by hand — the discovery document always reflects whatever's actually been declared as protected, not a separate list that can drift out of date.
 
+## Letting browser agents in
+
+Some agents drive a real browser (clicking and typing, like a person) and can't attach an `Authorization` header. Pass your Assentry client to `assentryDiscovery` and they get a way in too:
+
+```ts
+app.use(assentryDiscovery({ partnerName: "Acme", assentry }));
+```
+
+This adds:
+
+- **A sign-in page at `/assentry/sign-in`.** The agent pastes its credential into a form once. The SDK checks it with Assentry and stores it in an httpOnly cookie that expires when the person's permission does. `getCredentialFromRequest` (and so `requireGrant`) reads that cookie as well as the header, so your protected routes need no changes, and every request is still re-checked with Assentry, so withdrawing permission takes effect immediately. `/assentry/sign-out` clears it.
+- **A short visible line on your HTML pages**, "AI agent acting for someone? Sign in with Assentry", so an agent reading the page (not its headers) can find the sign-in page. Turn it off with `showAgentNotice: false`.
+- **A `browser_sign_in` entry** in `/.well-known/assentry.json`.
+
+## When Assentry can't be reached
+
+`verify` and `getProfile` never throw. If Assentry is unreachable, or rejects your API key (missing or wrong `ASSENTRY_API_KEY`), they return `{ valid: false, reason: "assentry_unavailable" }` and log the cause, so the agent is denied cleanly instead of your route crashing.
+
 ## Linking an existing account
 
 `verify`/`getProfile` cover agents acting on *new* flows your site builds for them. If a user already has an account with you from before they connected Assentry, a credential alone doesn't tell you which of your accounts it belongs to — you need a one-time confirmation first:
