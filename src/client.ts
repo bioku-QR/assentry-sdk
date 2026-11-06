@@ -13,7 +13,7 @@ export interface AssentryOptions {
   /** Assentry API origin. Defaults to the local dev server. */
   baseUrl?: string;
   /**
-   * Your partner `publicId` — safe to put in a browser-facing URL, unlike
+   * Your partner `publicId`, safe to put in a browser-facing URL, unlike
    * the API key. Only needed if you use `getAccountLinkUrl`.
    */
   partnerId?: string;
@@ -21,7 +21,7 @@ export interface AssentryOptions {
 
 /**
  * Server-side client for the Assentry partner handshake. Never put the API key
- * in frontend code — this talks to Assentry from your backend, the same way
+ * in frontend code, this talks to Assentry from your backend, the same way
  * you'd use a Stripe secret key.
  */
 export class Assentry {
@@ -37,9 +37,9 @@ export class Assentry {
 
   /**
    * Verifies a credential an agent presented. Always re-checks Assentry's
-   * authorisation service — never trust the agent's claim alone. A valid
+   * authorisation service, never trust the agent's claim alone. A valid
    * result means the grant is current (not revoked/expired); there's no
-   * separate per-action scope check for now — see getProfile for the one
+   * separate per-action scope check for now. See getProfile for the one
    * remaining restriction (which data fields may be disclosed).
    *
    * Never throws: if Assentry can't be reached or rejects your API key, this
@@ -54,7 +54,7 @@ export class Assentry {
    * Pulls only the profile fields the user actually consented to disclose
    * for this grant. Requesting a field the user didn't consent to simply
    * omits it from the response rather than erroring. Like `verify`, never
-   * throws — failures come back as `reason: "assentry_unavailable"`.
+   * throws, failures come back as `reason: "assentry_unavailable"`.
    */
   async getProfile(credential: string, fields: string[]): Promise<ProfileResult> {
     return this.denyOnFailure(() => this.request<ProfileResult>("/profile", { credential, fields }));
@@ -129,7 +129,7 @@ export class Assentry {
    */
   getAccountLinkUrl(params: { redirectUri: string; state?: string }): string {
     if (!this.partnerId) {
-      throw new Error("Assentry client was constructed without a partnerId — required for getAccountLinkUrl");
+      throw new Error("Assentry client was constructed without a partnerId, required for getAccountLinkUrl");
     }
     const qs = new URLSearchParams({
       partner_id: this.partnerId,
@@ -143,7 +143,7 @@ export class Assentry {
    * Exchanges the one-time code your redirect_uri received for the Assentry
    * `userId` to store against your own account record. After this, a
    * credential that resolves to that `userId` is proof of *this specific*
-   * existing account — no password involved at any point.
+   * existing account, no password involved at any point.
    */
   async exchangeLinkCode(code: string): Promise<LinkTokenResult> {
     return this.request<LinkTokenResult>("/link/token", { code });

@@ -11,21 +11,21 @@ export interface AssentryGrant {
 
 export interface AssentryRequest extends Request {
   assentryGrant?: AssentryGrant;
-  /** The raw credential the agent presented — reuse it for a /profile pull. */
+  /** The raw credential the agent presented, reuse it for a /profile pull. */
   assentryCredential?: string;
 }
 
 export interface RequireGrantOptions {
   /**
    * Override the header the credential is read from. Defaults to the
-   * standard `Authorization: Bearer <credential>` convention — the one any
+   * standard `Authorization: Bearer <credential>` convention, the one any
    * reasonably capable agent will already try without being told a
    * site-specific trick. Only set this if you have a real reason to deviate.
    */
   credentialHeader?: string;
   /**
    * How this route should appear in the site's discovery document (see
-   * `assentryDiscovery`) — stated once, right here, so there's no separate list
+   * `assentryDiscovery`), stated once, right here, so there's no separate list
    * elsewhere to keep in sync. Omit to keep this route out of discovery.
    */
   discover?: DiscoverableRoute;
@@ -36,7 +36,7 @@ export interface RequireGrantOptions {
  * `Authorization: Bearer` convention by default, or the cookie set when a
  * browser agent signed in on the SDK's /assentry/sign-in page. Exported on its own (not
  * just used internally by `requireGrant`) for routes that need to check a
- * credential *conditionally* — e.g. a page that also accepts a normal
+ * credential *conditionally*, e.g. a page that also accepts a normal
  * logged-in session, where you don't want to unconditionally reject
  * requests with no credential the way `requireGrant` does.
  */
@@ -54,11 +54,11 @@ export function getCredentialFromRequest(req: Request, options: RequireGrantOpti
 /**
  * Express middleware gating a route on a valid Assentry grant. On success,
  * attaches `req.assentryGrant` and calls next(); on failure, the agent is
- * treated exactly like any other unauthenticated request — your normal
+ * treated exactly like any other unauthenticated request, your normal
  * fallback flow (login, CAPTCHA, manual signup) still applies.
  *
  * When no credential is presented, responds with a standard `401` plus a
- * `WWW-Authenticate: Bearer` header — the HTTP-native "send a credential"
+ * `WWW-Authenticate: Bearer` header, the HTTP-native "send a credential"
  * challenge almost any HTTP-aware client or agent already recognises,
  * rather than a site-specific convention.
  */
