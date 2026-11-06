@@ -36,8 +36,30 @@ function readCookie(req: Request, name: string): string | null {
   return null;
 }
 
+// Set on a request once its cookie credential has been found to be dead,
+// so the rest of the request treats the visitor as signed out.
+const DEAD_SESSION = Symbol("assentryDeadSession");
+
 export function readCredentialCookie(req: Request): string | null {
+  if ((req as unknown as Record<symbol, boolean>)[DEAD_SESSION]) return null;
   return readCookie(req, CREDENTIAL_COOKIE);
+}
+
+/**
+ * For a page view carrying a browser-agent session: checks the credential
+ * is still good. If the person withdrew the permission (or it expired), the
+ * cookie is cleared and the visitor is treated as signed out, so the page
+ * offers a fresh sign-in code instead of a dead end. If Assentry can't be
+ * reached, the session is left alone. Returns true if still signed in.
+ */
+export async function checkBrowserSession(req: Request, res: Response, assentry: Assentry): Promise<boolean> {
+  const credential = readCredentialCookie(req);
+  if (!credential) return false;
+  const result = await assentry.verify(credential);
+  if (result.valid || result.reason === "assentry_unavailable") return true;
+  clearCookie(res, CREDENTIAL_COOKIE);
+  (req as unknown as Record<symbol, boolean>)[DEAD_SESSION] = true;
+  return false;
 }
 
 function setCookie(req: Request, res: Response, name: string, value: string, maxAgeSeconds: number) {

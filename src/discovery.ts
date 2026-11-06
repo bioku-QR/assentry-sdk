@@ -5,7 +5,7 @@ import {
   ensurePendingSignIn,
   handleSignInRoutes,
   injectSignInBlock,
-  readCredentialCookie,
+  checkBrowserSession,
   SIGN_OUT_PATH,
 } from "./browser";
 
@@ -134,9 +134,9 @@ export function assentryDiscovery(options: AssentryDiscoveryOptions) {
       });
       if (handled) return;
 
-      // A page someone is viewing in a browser, who isn't signed in yet.
-      const signedIn = Boolean(readCredentialCookie(req) || req.headers.authorization);
-      if (req.method === "GET" && !signedIn && req.accepts(["html", "json"]) === "html") {
+      // A page someone is viewing in a browser, who isn't (or is no longer) signed in.
+      const pageView = req.method === "GET" && req.accepts(["html", "json"]) === "html";
+      if (pageView && !req.headers.authorization && !(await checkBrowserSession(req, res, assentry))) {
         const pending = await ensurePendingSignIn(req, res, assentry);
         if (pending) {
           res.setHeader(CODE_HEADER, pending.code);
