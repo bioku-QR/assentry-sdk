@@ -4,4 +4,11 @@ export { declareDiscoverableRoute, assentryDiscovery } from "./discovery";
 export type { DiscoverableRoute, AssentryDiscoveryOptions } from "./discovery";
 export { getCredentialFromRequest, requireGrant } from "./middleware";
 export type { AssentryGrant, AssentryRequest, RequireGrantOptions } from "./middleware";
-export type { DenialReason, LinkTokenResult, ProfileResult, VerifyResult } from "./types";
+export type {
+  DenialReason,
+  LinkTokenResult,
+  ProfileResult,
+  SignInCollectResult,
+  SignInStart,
+  VerifyResult,
+} from "./types";

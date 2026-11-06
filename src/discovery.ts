@@ -1,6 +1,13 @@
 import type { NextFunction, Request, Response } from "express";
 import type { Assentry } from "./client";
-import { handleBrowserSignIn, injectAgentNotice, SIGN_IN_PATH, SIGN_OUT_PATH } from "./browser";
+import {
+  CODE_HEADER,
+  ensurePendingSignIn,
+  handleSignInRoutes,
+  injectSignInBlock,
+  readCredentialCookie,
+  SIGN_OUT_PATH,
+} from "./browser";
 
 export interface DiscoverableRoute {
   /** Path the route is mounted at, e.g. "/dashboard". */
@@ -36,18 +43,14 @@ export interface AssentryDiscoveryOptions {
   /** This site's display name, shown in the discovery document. */
   partnerName: string;
   /**
-   * Your Assentry client. Pass it to let browser-driving agents in too: it
-   * serves a sign-in page at /assentry/sign-in where an agent pastes its
-   * credential once, and adds a short visible "Sign in with Assentry" line
-   * to your HTML pages so those agents can find it. Without it, only agents
-   * that send an Authorization header can get in.
+   * Your Assentry client. Pass it to let browser-driving agents in too: each
+   * HTML page shown to a visitor who isn't signed in carries a short Assentry
+   * sign-in code. The agent approves that code through its own Assentry
+   * connection (never by typing anything into your site), and the page signs
+   * it in by itself. Without it, only agents that send an Authorization
+   * header can get in.
    */
   assentry?: Assentry;
-  /**
-   * Set false to keep the visible notice off your pages (the sign-in page
-   * still works). Defaults to true when `assentry` is given.
-   */
-  showAgentNotice?: boolean;
 }
 
 const WELL_KNOWN_PATH = "/.well-known/assentry.json";
@@ -76,8 +79,7 @@ const WELL_KNOWN_PATH = "/.well-known/assentry.json";
  * this always reflects whatever's actually been registered as protected.
  */
 export function assentryDiscovery(options: AssentryDiscoveryOptions) {
-  const browser = options.assentry;
-  const showNotice = browser !== undefined && options.showAgentNotice !== false;
+  const assentry = options.assentry;
 
   return async (req: Request, res: Response, next: NextFunction) => {
     res.setHeader("Link", `<${WELL_KNOWN_PATH}>; rel="assentry-agent-discovery"`);
@@ -93,13 +95,13 @@ export function assentryDiscovery(options: AssentryDiscoveryOptions) {
           instructions:
             "Present the Assentry credential your grant issued as 'Authorization: Bearer <credential>' on the routes below. No login, session or signup is needed or should be attempted.",
         },
-        ...(browser
+        ...(assentry
           ? {
               browser_sign_in: {
-                path: SIGN_IN_PATH,
+                code_header: CODE_HEADER,
                 sign_out_path: SIGN_OUT_PATH,
                 instructions:
-                  "If you are driving a browser and can't set headers, open this page, paste the credential into the form and submit. You'll be signed in until the person's permission ends.",
+                  "If you're driving a browser, pages show an 'Assentry sign-in code'. Approve it with your Assentry connection's approve_sign_in tool; the page then signs you in by itself. Never type a credential into this site.",
               },
             }
           : {}),
@@ -108,18 +110,27 @@ export function assentryDiscovery(options: AssentryDiscoveryOptions) {
       return;
     }
 
-    if (browser) {
-      try {
-        const defaultReturnTo = registry.values().next().value?.path ?? "/";
-        const handled = await handleBrowserSignIn(req, res, browser, {
-          partnerName: options.partnerName,
-          defaultReturnTo,
-        });
-        if (handled) return;
-      } catch (err) {
-        return next(err);
+    if (!assentry) return next();
+
+    try {
+      const protectedPaths = Array.from(registry.values()).map((r) => r.path);
+      const handled = await handleSignInRoutes(req, res, assentry, {
+        protectedPaths,
+        defaultReturnTo: protectedPaths[0] ?? "/",
+      });
+      if (handled) return;
+
+      // A page someone is viewing in a browser, who isn't signed in yet.
+      const signedIn = Boolean(readCredentialCookie(req) || req.headers.authorization);
+      if (req.method === "GET" && !signedIn && req.accepts(["html", "json"]) === "html") {
+        const pending = await ensurePendingSignIn(req, res, assentry);
+        if (pending) {
+          res.setHeader(CODE_HEADER, pending.code);
+          injectSignInBlock(res, pending.code);
+        }
       }
-      if (showNotice) injectAgentNotice(req, res);
+    } catch (err) {
+      return next(err);
     }
     next();
   };

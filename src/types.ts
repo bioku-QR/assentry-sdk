@@ -22,3 +22,15 @@ export type ProfileResult =
 export interface LinkTokenResult {
   userId: string;
 }
+
+export interface SignInStart {
+  requestId: string;
+  code: string;
+  expiresAt: string;
+}
+
+export type SignInCollectResult =
+  | { status: "pending"; expiresAt: string }
+  | { status: "expired" | "not_found" | "already_collected" | "assentry_unavailable" }
+  | { status: "denied"; reason: "grant_revoked" | "grant_expired" | "agent_revoked" }
+  | { status: "approved"; credential: string; userId: string; agentId: string; expiresAt: string };

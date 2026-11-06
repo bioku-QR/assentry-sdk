@@ -1,4 +1,4 @@
-import type { LinkTokenResult, ProfileResult, VerifyResult } from "./types";
+import type { LinkTokenResult, ProfileResult, SignInCollectResult, SignInStart, VerifyResult } from "./types";
 
 export class AssentryRequestError extends Error {
   status: number;
@@ -58,6 +58,29 @@ export class Assentry {
    */
   async getProfile(credential: string, fields: string[]): Promise<ProfileResult> {
     return this.denyOnFailure(() => this.request<ProfileResult>("/profile", { credential, fields }));
+  }
+
+  /**
+   * Starts a browser-agent sign-in: Assentry returns a short code for your
+   * page to show. The agent approves it through its own Assentry connection,
+   * never by typing into your site. Throws if Assentry can't be reached.
+   * `assentryDiscovery({ assentry })` does all of this for you.
+   */
+  async startSignIn(): Promise<SignInStart> {
+    return this.request<SignInStart>("/sign-in-requests", {});
+  }
+
+  /**
+   * Checks a sign-in started with `startSignIn`. Once approved, returns the
+   * person's credential exactly once. Never throws.
+   */
+  async collectSignIn(requestId: string): Promise<SignInCollectResult> {
+    try {
+      return await this.request<SignInCollectResult>("/sign-in-requests/collect", { requestId });
+    } catch (err) {
+      console.error(`[assentry] sign-in check failed: ${err instanceof Error ? err.message : String(err)}`);
+      return { status: "assentry_unavailable" };
+    }
   }
 
   private async denyOnFailure<T>(call: () => Promise<T>): Promise<T | { valid: false; reason: "assentry_unavailable" }> {

@@ -73,17 +73,21 @@ Either way, there's nothing to keep in sync by hand — the discovery document a
 
 ## Letting browser agents in
 
-Some agents drive a real browser (clicking and typing, like a person) and can't attach an `Authorization` header. Pass your Assentry client to `assentryDiscovery` and they get a way in too:
+Some agents drive a real browser (clicking and reading pages, like a person). They can't attach an `Authorization` header, and they must never type a credential into a website. Pass your Assentry client to `assentryDiscovery` and they can still sign in, without handing your site anything:
 
 ```ts
 app.use(assentryDiscovery({ partnerName: "Acme", assentry }));
 ```
 
-This adds:
+How it works:
 
-- **A sign-in page at `/assentry/sign-in`.** The agent pastes its credential into a form once. The SDK checks it with Assentry and stores it in an httpOnly cookie that expires when the person's permission does. `getCredentialFromRequest` (and so `requireGrant`) reads that cookie as well as the header, so your protected routes need no changes, and every request is still re-checked with Assentry, so withdrawing permission takes effect immediately. `/assentry/sign-out` clears it.
-- **A short visible line on your HTML pages**, "AI agent acting for someone? Sign in with Assentry", so an agent reading the page (not its headers) can find the sign-in page. Turn it off with `showAgentNotice: false`.
-- **A `browser_sign_in` entry** in `/.well-known/assentry.json`.
+1. When someone who isn't signed in opens one of your HTML pages, the SDK asks Assentry (server-to-server, with your API key) for a short sign-in code and shows it at the bottom of the page: "Assentry sign-in code: KQ7-4MZ". It's also in a `<meta name="assentry-sign-in-code">` tag and an `Assentry-Sign-In-Code` response header.
+2. The agent approves that code through its own Assentry connection (the `approve_sign_in` tool). That's what ties the code to a person: whichever agent approves it, using that person's permission.
+3. The page checks back every few seconds. Once approved, your server collects the result from Assentry (once only), keeps the credential in an httpOnly cookie that expires with the person's permission, and the page moves on to your first protected route.
+
+`getCredentialFromRequest` (and so `requireGrant`) reads that cookie as well as the header, so your protected routes need no changes. Every request is still re-checked with Assentry, so withdrawing permission takes effect immediately. `/assentry/sign-out` clears it.
+
+Codes are random, single-use, tied to your site, and expire after 5 minutes. Each visitor gets their own code. The page uses a small inline script to check back; if your site's Content Security Policy blocks inline scripts, allow it or reload the page after approving.
 
 ## When Assentry can't be reached
 
