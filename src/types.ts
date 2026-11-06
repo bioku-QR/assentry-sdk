@@ -4,6 +4,10 @@ export type DenialReason =
   | "revoked"
   | "agent_revoked"
   | "expired"
+  /** Issued for a different site, or this app's domain isn't verified. */
+  | "wrong_site"
+  /** The person ended this sign-in from their Sign-ins screen. */
+  | "sign_in_ended"
   /**
    * Assentry couldn't be asked: it was unreachable, or it rejected this
    * site's API key (missing or wrong). Treated as a denial so a setup
@@ -12,11 +16,19 @@ export type DenialReason =
   | "assentry_unavailable";
 
 export type VerifyResult =
+  /**
+   * userId and agentId are specific to your developer account: stable for a
+   * person across your apps, different for every other developer.
+   */
   | { valid: true; userId: string; agentId: string; expiresAt: string }
   | { valid: false; reason: DenialReason };
 
 export type ProfileResult =
-  | { valid: true; profile: Record<string, unknown> }
+  /**
+   * Only fields your app declared in the console AND the person allowed.
+   * `undeclaredFields` lists requested fields your app hasn't declared.
+   */
+  | { valid: true; profile: Record<string, unknown>; undeclaredFields?: string[] }
   | { valid: false; reason: DenialReason };
 
 export interface LinkTokenResult {
