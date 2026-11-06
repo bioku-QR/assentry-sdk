@@ -7,7 +7,10 @@ export type { AssentryGrant, AssentryRequest, RequireGrantOptions } from "./midd
 export type {
   DenialReason,
   LinkTokenResult,
+  ProfileAddress,
+  ProfileFile,
   ProfileResult,
+  ProfileValue,
   SignInCollectResult,
   SignInStart,
   VerifyResult,

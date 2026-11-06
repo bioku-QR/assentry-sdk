@@ -25,10 +25,19 @@ export type VerifyResult =
 
 export type ProfileResult =
   /**
-   * Only fields your app declared in the console AND the person allowed.
-   * `undeclaredFields` lists requested fields your app hasn't declared.
+   * Only details your app declared in the console AND the person allowed,
+   * each in its published format (see ProfileValue). `meta` says where each
+   * came from; `missing` lists required details you declared but aren't
+   * getting (the person has been asked); `undeclaredFields` lists requested
+   * keys your app hasn't declared.
    */
-  | { valid: true; profile: Record<string, unknown>; undeclaredFields?: string[] }
+  | {
+      valid: true;
+      profile: Record<string, ProfileValue>;
+      meta: Record<string, { source: "person" | "agent"; updatedAt: string }>;
+      missing?: string[];
+      undeclaredFields?: string[];
+    }
   | { valid: false; reason: DenialReason };
 
 export interface LinkTokenResult {
@@ -46,3 +55,33 @@ export type SignInCollectResult =
   | { status: "expired" | "not_found" | "already_collected" | "assentry_unavailable" }
   | { status: "denied"; reason: "grant_revoked" | "grant_expired" | "agent_revoked" }
   | { status: "approved"; credential: string; userId: string; agentId: string; expiresAt: string };
+
+/** A structured address (OpenID Connect style). `country` is an ISO 3166-1 code. */
+export interface ProfileAddress {
+  street_address?: string;
+  locality?: string;
+  region?: string;
+  postal_code?: string;
+  country?: string;
+  formatted: string;
+}
+
+/**
+ * A file detail. `url` works once, for 5 minutes, and only with your API
+ * key: fetch it with `assentry.downloadFile(file)`.
+ */
+export interface ProfileFile {
+  filename: string;
+  contentType: string;
+  size: number;
+  sha256: string;
+  url: string;
+  expiresAt: string;
+}
+
+/**
+ * Values by type: text, long_text, email, phone (E.164), date (YYYY-MM-DD),
+ * url, choice and country (ISO code) are strings; integer and decimal are
+ * numbers; boolean is a boolean; address is a ProfileAddress; file a ProfileFile.
+ */
+export type ProfileValue = string | number | boolean | ProfileAddress | ProfileFile;

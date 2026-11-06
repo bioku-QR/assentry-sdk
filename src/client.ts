@@ -1,4 +1,4 @@
-import type { LinkTokenResult, ProfileResult, SignInCollectResult, SignInStart, VerifyResult } from "./types";
+import type { LinkTokenResult, ProfileFile, ProfileResult, SignInCollectResult, SignInStart, VerifyResult } from "./types";
 
 export class AssentryRequestError extends Error {
   status: number;
@@ -97,6 +97,18 @@ export class Assentry {
       console.error(`[assentry] sign-in check failed: ${err instanceof Error ? err.message : String(err)}`);
       return { status: "assentry_unavailable" };
     }
+  }
+
+  /**
+   * Downloads a file detail from getProfile. The link works once, within 5
+   * minutes, and only with this app's API key.
+   */
+  async downloadFile(file: ProfileFile): Promise<{ bytes: Buffer; contentType: string; filename: string }> {
+    const res = await fetch(file.url, { headers: { "x-assentry-api-key": this.apiKey } });
+    if (!res.ok) {
+      throw new AssentryRequestError(`file download failed (${res.status}): links work once, for 5 minutes`, res.status);
+    }
+    return { bytes: Buffer.from(await res.arrayBuffer()), contentType: file.contentType, filename: file.filename };
   }
 
   private async denyOnFailure<T>(call: () => Promise<T>): Promise<T | { valid: false; reason: "assentry_unavailable" }> {

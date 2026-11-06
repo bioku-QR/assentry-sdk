@@ -1,6 +1,6 @@
 {
   "name": "@assentry/sdk",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "license": "MIT",
   "description": "Server-side SDK for partner sites verifying Assentry agent credentials",
   "main": "dist/index.js",

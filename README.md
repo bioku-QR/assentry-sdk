@@ -39,6 +39,17 @@ An agent presents its credential as a standard `Authorization: Bearer <credentia
 
 Each credential is issued for one site's verified domain and refused anywhere else, so a site can't reuse a credential it received to get into another site. `verify` returns a `userId` and `agentId` specific to your developer account: stable for a person across your apps (key your accounts on `userId`), but different for every other developer, so sites can't link a person between them. `getProfile` only returns details your app declared in the Assentry developer console *and* the person allowed.
 
+Every detail has a fixed type and format, shown next to it in the console: text, long text, email, phone (E.164, e.g. `+447700900123`), date (`YYYY-MM-DD`), url, integer, decimal, boolean, choice, country (ISO code), address (an object with `street_address`, `locality`, `region`, `postal_code`, `country`, `formatted`) and file. You can also declare your own details (with a label and one of these types), and mark each detail required or optional. If a person's agent signs in without a required detail, Assentry asks the person for it, and `getProfile` lists it in `missing` until they provide it. `meta` tells you whether each value was entered by the person or suggested by their agent and confirmed by them.
+
+Files arrive as a link that works once, for 5 minutes, and only with your API key:
+
+```ts
+const { profile } = await assentry.getProfile(credential, ["resume"]);
+if (profile.resume) {
+  const { bytes, filename } = await assentry.downloadFile(profile.resume as ProfileFile);
+}
+```
+
 A valid grant means the agent may act for the person who issued it — there's no separate per-action scope check for now, only `getProfile`'s existing per-field consent. If you need a route to only be reachable by certain grants, that's on your own application logic for the moment, same as any other authorization decision your site makes.
 
 If you'd rather not use the Express middleware, call `assentry.verify(credential)` and `assentry.getProfile(credential, fields)` directly — `requireGrant` is a thin convenience wrapper over both. If you need to check a credential *conditionally* instead of unconditionally requiring one (e.g. a page that also accepts a normal logged-in session), use the lower-level `getCredentialFromRequest(req)` that `requireGrant` uses internally — same convention, without the automatic 401.
