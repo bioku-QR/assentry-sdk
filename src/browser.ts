@@ -6,7 +6,7 @@ import type { Assentry } from "./client";
 // So the site never receives anything from the agent directly:
 //
 // 1. When a page loads, the SDK asks Assentry (server-to-server, with the
-//    site's API key) for a short sign-in code, and shows it on the page.
+//    site's API key) for a long random sign-in code, and shows it on the page.
 // 2. The agent reads the code and approves it through its own Assentry
 //    connection (the approve_sign_in tool). That's what ties the code to a
 //    person: whichever agent approves it, with that person's permission.
@@ -169,7 +169,8 @@ function signInBlock(code: string): string {
   // agent has approved the code through its Assentry connection.
   return `<meta name="assentry-sign-in-code" content="${code}">
 <div ${MARKER} style="margin:32px auto 16px;max-width:640px;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font:14px -apple-system,system-ui,sans-serif;color:#333;text-align:center">
-AI agent acting for someone? <strong>Assentry sign-in code: ${code}</strong><br>
+AI agent acting for someone? <strong>Assentry sign-in code:</strong>
+<code id="assentry-sign-in-code" style="display:block;margin:6px 0;font:13px ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;user-select:all">${code}</code>
 <span style="color:#666;font-size:13px">Approve it through your Assentry connection, with this site&#39;s domain from the address bar; this page continues by itself. Never type a credential here.</span>
 <span id="assentry-sign-in-state" style="display:block;color:#666;font-size:13px"></span>
 </div>

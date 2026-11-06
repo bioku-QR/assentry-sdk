@@ -83,7 +83,7 @@ First, in the Assentry developer console, give your app its domain (e.g. `shop.e
 
 How it works:
 
-1. When someone who isn't signed in opens one of your HTML pages, the SDK asks Assentry (server-to-server, with your API key) for a short sign-in code and shows it at the bottom of the page: "Assentry sign-in code: KQ7-4MZ". It's also in a `<meta name="assentry-sign-in-code">` tag and an `Assentry-Sign-In-Code` response header.
+1. When someone who isn't signed in opens one of your HTML pages, the SDK asks Assentry (server-to-server, with your API key) for a sign-in code and shows it at the bottom of the page: "Assentry sign-in code: asq_ZV4V2FYS…" (`asq_` plus 52 random characters, so it can't be guessed). It's also in a `<meta name="assentry-sign-in-code">` tag and an `Assentry-Sign-In-Code` response header.
 2. The agent approves that code through its own Assentry connection (the `approve_sign_in` tool), passing the domain from its address bar. Assentry refuses unless the code was issued to that verified domain, so a code copied from another site can't be approved here. Approving is also what ties the code to a person: whichever agent approves it, using that person's permission.
 3. The page checks back every few seconds. Once approved, your server collects the result from Assentry (once only), keeps the credential in an httpOnly cookie that expires with the person's permission, and the page moves on to your first protected route.
 
