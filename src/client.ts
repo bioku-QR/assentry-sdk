@@ -1,5 +1,7 @@
 import type { LinkTokenResult, ProfileFile, ProfileResult, SignInCollectResult, SignInStart, VerifyResult } from "./types";
 
+export const DEFAULT_BASE_URL = "https://api.assentry.io";
+
 export class AssentryRequestError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -10,7 +12,10 @@ export class AssentryRequestError extends Error {
 
 export interface AssentryOptions {
   apiKey: string;
-  /** Assentry API origin. Defaults to the local dev server. */
+  /**
+   * Assentry API origin. Defaults to https://api.assentry.io; set it only to
+   * point at a local or test Assentry (e.g. http://localhost:4000).
+   */
   baseUrl?: string;
   /**
    * Your partner `publicId`, safe to put in a browser-facing URL, unlike
@@ -31,7 +36,7 @@ export class Assentry {
 
   constructor(options: AssentryOptions) {
     this.apiKey = options.apiKey;
-    this.baseUrl = (options.baseUrl ?? "http://localhost:4000").replace(/\/$/, "");
+    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, "");
     this.partnerId = options.partnerId;
   }
 

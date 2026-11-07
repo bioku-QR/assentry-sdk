@@ -15,6 +15,7 @@ import { Assentry, requireGrant, AssentryRequest } from "@assentry/sdk";
 import express from "express";
 
 const assentry = new Assentry({ apiKey: process.env.ASSENTRY_API_KEY! });
+// Talks to https://api.assentry.io. For a local Assentry, add baseUrl: "http://localhost:4000".
 
 const app = express();
 app.use(express.json());
