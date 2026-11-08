@@ -40,9 +40,22 @@ function readCookie(req: Request, name: string): string | null {
 // so the rest of the request treats the visitor as signed out.
 const DEAD_SESSION = Symbol("assentryDeadSession");
 
+function isSecure(req: Request): boolean {
+  return req.secure || req.headers["x-forwarded-proto"] === "https";
+}
+
+/**
+ * Over HTTPS the cookies use the __Host- prefix: browsers only accept such a
+ * cookie from this exact host over HTTPS, so another subdomain (or a plain
+ * HTTP response) can't plant a sign-in or a credential in a visitor's browser.
+ */
+function cookieName(req: Request, base: string): string {
+  return isSecure(req) ? `__Host-${base}` : base;
+}
+
 export function readCredentialCookie(req: Request): string | null {
   if ((req as unknown as Record<symbol, boolean>)[DEAD_SESSION]) return null;
-  return readCookie(req, CREDENTIAL_COOKIE);
+  return readCookie(req, cookieName(req, CREDENTIAL_COOKIE));
 }
 
 /**
@@ -57,19 +70,20 @@ export async function checkBrowserSession(req: Request, res: Response, assentry:
   if (!credential) return false;
   const result = await assentry.verify(credential);
   if (result.valid || result.reason === "assentry_unavailable") return true;
-  clearCookie(res, CREDENTIAL_COOKIE);
+  clearCookie(req, res, CREDENTIAL_COOKIE);
   (req as unknown as Record<symbol, boolean>)[DEAD_SESSION] = true;
   return false;
 }
 
-function setCookie(req: Request, res: Response, name: string, value: string, maxAgeSeconds: number) {
-  const attrs = [`${name}=${encodeURIComponent(value)}`, "Path=/", "HttpOnly", "SameSite=Lax", `Max-Age=${maxAgeSeconds}`];
-  if (req.secure || req.headers["x-forwarded-proto"] === "https") attrs.push("Secure");
+function setCookie(req: Request, res: Response, base: string, value: string, maxAgeSeconds: number) {
+  const attrs = [`${cookieName(req, base)}=${encodeURIComponent(value)}`, "Path=/", "HttpOnly", "SameSite=Lax", `Max-Age=${maxAgeSeconds}`];
+  if (isSecure(req)) attrs.push("Secure");
   res.append("Set-Cookie", attrs.join("; "));
 }
 
-function clearCookie(res: Response, name: string) {
-  res.append("Set-Cookie", `${name}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+function clearCookie(req: Request, res: Response, base: string) {
+  const secure = isSecure(req) ? "; Secure" : "";
+  res.append("Set-Cookie", `${cookieName(req, base)}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`);
 }
 
 function secondsUntil(iso: string): number {
@@ -82,11 +96,17 @@ interface PendingSignIn {
   expiresAt: string;
 }
 
+const REQUEST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CODE_PATTERN = /^asq_[2-9A-HJ-NP-Z]{52}$/;
+
+/** The visitor's pending sign-in, only if every part looks exactly as Assentry issues it. */
 function readPending(req: Request): PendingSignIn | null {
-  const raw = readCookie(req, PENDING_COOKIE);
+  const raw = readCookie(req, cookieName(req, PENDING_COOKIE));
   if (!raw) return null;
   const [requestId, code, expiresAt] = raw.split("|");
-  if (!requestId || !code || !expiresAt || new Date(expiresAt).getTime() <= Date.now() + 15_000) return null;
+  if (!requestId || !REQUEST_ID_PATTERN.test(requestId) || !code || !CODE_PATTERN.test(code) || !expiresAt) return null;
+  const expiry = new Date(expiresAt).getTime();
+  if (Number.isNaN(expiry) || expiry <= Date.now() + 15_000) return null;
   return { requestId, code, expiresAt };
 }
 
@@ -103,17 +123,17 @@ export async function handleSignInRoutes(
   opts: { protectedPaths: string[]; defaultReturnTo: string }
 ): Promise<boolean> {
   if (req.path === SIGN_OUT_PATH) {
-    clearCookie(res, CREDENTIAL_COOKIE);
-    clearCookie(res, PENDING_COOKIE);
+    clearCookie(req, res, CREDENTIAL_COOKIE);
+    clearCookie(req, res, PENDING_COOKIE);
     res.redirect(303, "/");
     return true;
   }
   if (req.path !== STATUS_PATH) return false;
 
   res.setHeader("Cache-Control", "no-store");
-  const raw = readCookie(req, PENDING_COOKIE);
+  const raw = readCookie(req, cookieName(req, PENDING_COOKIE));
   const requestId = raw?.split("|")[0];
-  if (!requestId) {
+  if (!requestId || !REQUEST_ID_PATTERN.test(requestId)) {
     res.json({ status: "expired" });
     return true;
   }
@@ -121,7 +141,7 @@ export async function handleSignInRoutes(
   const result = await assentry.collectSignIn(requestId);
   if (result.status === "approved") {
     setCookie(req, res, CREDENTIAL_COOKIE, result.credential, secondsUntil(result.expiresAt));
-    clearCookie(res, PENDING_COOKIE);
+    clearCookie(req, res, PENDING_COOKIE);
     // Back to the page the agent was on if it's a protected one; otherwise
     // (e.g. it was bounced to a login page) to the first protected page.
     const from = req.query.from;
@@ -137,7 +157,7 @@ export async function handleSignInRoutes(
     res.json({ status: "unavailable" });
     return true;
   }
-  clearCookie(res, PENDING_COOKIE);
+  clearCookie(req, res, PENDING_COOKIE);
   res.json({ status: result.status === "denied" ? "denied" : "expired" });
   return true;
 }
@@ -163,7 +183,14 @@ export async function ensurePendingSignIn(req: Request, res: Response, assentry:
 
 const MARKER = "data-assentry-sign-in";
 
-function signInBlock(code: string): string {
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function signInBlock(rawCode: string): string {
+  // Codes are checked against Assentry's format before they get here; this
+  // is a second guard so nothing can ever be injected into the page.
+  const code = escapeHtml(rawCode);
   // Plain text the agent can read, a meta tag for machine reading, and a
   // small script that checks back every few seconds and moves on once the
   // agent has approved the code through its Assentry connection.

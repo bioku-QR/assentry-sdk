@@ -130,15 +130,23 @@ export class Assentry {
    * can confirm their Assentry identity matches their existing account with
    * you. Requires `partnerId` to have been passed to the constructor.
    * See `exchangeLinkCode` for the other half of this flow.
+   *
+   * `state` must be a fresh random value you keep in the user's session and
+   * compare when they come back to your redirect URI. Without that check,
+   * someone could send your user a callback link that links their account
+   * to someone else's Assentry identity.
    */
-  getAccountLinkUrl(params: { redirectUri: string; state?: string }): string {
+  getAccountLinkUrl(params: { redirectUri: string; state: string }): string {
     if (!this.partnerId) {
       throw new Error("Assentry client was constructed without a partnerId, required for getAccountLinkUrl");
+    }
+    if (typeof params.state !== "string" || params.state.length < 16) {
+      throw new Error("getAccountLinkUrl needs a random state of at least 16 characters, kept in the user's session and checked on return");
     }
     const qs = new URLSearchParams({
       partner_id: this.partnerId,
       redirect_uri: params.redirectUri,
-      state: params.state ?? "",
+      state: params.state,
     });
     return `${this.baseUrl}/link/authorize?${qs}`;
   }

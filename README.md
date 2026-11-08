@@ -117,13 +117,18 @@ const assentry = new Assentry({
   partnerId: process.env.ASSENTRY_PARTNER_PUBLIC_ID!, // safe to expose, unlike the API key
 });
 
-// 1. An already-logged-in user on your site clicks "Link your Assentry account"
+// 1. An already-logged-in user on your site clicks "Link your Assentry account".
+//    state is a fresh random value kept in their session and checked on return.
 app.get("/link/start", (req, res) => {
-  res.redirect(assentry.getAccountLinkUrl({ redirectUri: "https://yoursite.com/link/callback" }));
+  req.session.linkState = crypto.randomBytes(32).toString("base64url");
+  res.redirect(assentry.getAccountLinkUrl({ redirectUri: "https://yoursite.com/link/callback", state: req.session.linkState }));
 });
 
 // 2. Assentry sends them back here after they log in and confirm
 app.get("/link/callback", async (req, res) => {
+  const expected = req.session.linkState;
+  delete req.session.linkState;
+  if (!expected || req.query.state !== expected) return res.status(400).send("Linking expired. Try again.");
   const { userId } = await assentry.exchangeLinkCode(String(req.query.code));
   // store userId against the current user's existing account record
   res.send("Linked!");

@@ -1,6 +1,6 @@
 {
   "name": "@assentry/sdk",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "license": "MIT",
   "description": "Server-side SDK for partner sites verifying Assentry agent credentials",
   "main": "dist/index.js",
@@ -18,7 +18,8 @@
     "build": "tsc -p .",
     "prepare": "npm run build",
     "dev": "tsc -p . --watch",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "test": "npm run build && node --test test/browser.test.mjs"
   },
   "peerDependencies": {
     "express": "^4"
