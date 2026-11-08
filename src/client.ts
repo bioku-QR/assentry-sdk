@@ -43,9 +43,8 @@ export class Assentry {
   /**
    * Verifies a credential an agent presented. Always re-checks Assentry's
    * authorisation service, never trust the agent's claim alone. A valid
-   * result means the grant is current (not revoked/expired); there's no
-   * separate per-action scope check for now. See getProfile for the one
-   * remaining restriction (which data fields may be disclosed).
+   * result means the grant is current (not revoked/expired). See getProfile
+   * for which data fields may be disclosed.
    *
    * Never throws: if Assentry can't be reached or rejects your API key, this
    * returns `{ valid: false, reason: "assentry_unavailable" }` (and logs the

@@ -2,7 +2,7 @@
 
 [MIT licensed](./LICENSE). Server-side SDK for partner sites that accept authorised [Assentry](https://github.com/bioku-QR/assentry) agent traffic. It wraps the `/verify`, `/profile`, and account-linking handshake against the Assentry backend. Install this instead of calling the raw API yourself.
 
-Not published to npm yet; install directly from this repo in the meantime:
+Install from this repo:
 
 ```bash
 npm install github:bioku-QR/assentry-sdk
@@ -51,7 +51,7 @@ if (profile.resume) {
 }
 ```
 
-A valid grant means the agent may act for the person who issued it. There's no separate per-action scope check for now, only `getProfile`'s existing per-field consent. If you need a route to only be reachable by certain grants, that's on your own application logic for the moment, same as any other authorization decision your site makes.
+A valid grant means the agent may act for the person who issued it, and `getProfile` only returns the fields they agreed to share. Which routes a verified person may reach is your application's decision, like any other authorization decision your site makes.
 
 If you'd rather not use the Express middleware, call `assentry.verify(credential)` and `assentry.getProfile(credential, fields)` directly; `requireGrant` is a thin convenience wrapper over both. If you need to check a credential *conditionally* instead of unconditionally requiring one (e.g. a page that also accepts a normal logged-in session), use the lower-level `getCredentialFromRequest(req)` that `requireGrant` uses internally: same convention, without the automatic 401.
 
