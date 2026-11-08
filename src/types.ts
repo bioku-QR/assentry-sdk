@@ -8,6 +8,8 @@ export type DenialReason =
   | "wrong_site"
   /** The person ended this sign-in from their Sign-ins screen. */
   | "sign_in_ended"
+  /** The person hasn't allowed this site, or removed it. */
+  | "site_not_allowed"
   /**
    * Assentry couldn't be asked: it was unreachable, or it rejected this
    * site's API key (missing or wrong). Treated as a denial so a setup
@@ -51,9 +53,14 @@ export interface SignInStart {
 }
 
 export type SignInCollectResult =
-  | { status: "pending"; expiresAt: string }
+  /**
+   * Not approved yet. `waitingFor: "person"` means the agent approved it but
+   * this is the first sign-in to your site for that person, so they're
+   * allowing your site in the Assentry app; `expiresAt` moves later then.
+   */
+  | { status: "pending"; expiresAt: string; waitingFor?: "person" }
   | { status: "expired" | "not_found" | "already_collected" | "assentry_unavailable" }
-  | { status: "denied"; reason: "grant_revoked" | "grant_expired" | "agent_revoked" }
+  | { status: "denied"; reason: "grant_revoked" | "grant_expired" | "agent_revoked" | "person_declined" }
   | { status: "approved"; credential: string; userId: string; agentId: string; expiresAt: string };
 
 /** A structured address (OpenID Connect style). `country` is an ISO 3166-1 code. */

@@ -150,7 +150,13 @@ export async function handleSignInRoutes(
     return true;
   }
   if (result.status === "pending") {
-    res.json({ status: "pending" });
+    // While the person allows the site, Assentry gives the code longer; keep
+    // the visitor's pending sign-in for as long.
+    const current = readPending(req);
+    if (current && result.expiresAt && new Date(result.expiresAt).getTime() > new Date(current.expiresAt).getTime()) {
+      setCookie(req, res, PENDING_COOKIE, `${current.requestId}|${current.code}|${result.expiresAt}`, secondsUntil(result.expiresAt));
+    }
+    res.json({ status: "pending", waitingFor: result.waitingFor });
     return true;
   }
   if (result.status === "assentry_unavailable") {
@@ -158,7 +164,11 @@ export async function handleSignInRoutes(
     return true;
   }
   clearCookie(req, res, PENDING_COOKIE);
-  res.json({ status: result.status === "denied" ? "denied" : "expired" });
+  if (result.status === "denied") {
+    res.json({ status: "denied", reason: result.reason === "person_declined" ? "declined" : "invalid" });
+    return true;
+  }
+  res.json({ status: "expired" });
   return true;
 }
 
@@ -205,8 +215,8 @@ AI agent acting for someone? <strong>Assentry sign-in code:</strong>
 function poll(){if(document.hidden){return setTimeout(poll,4000);}
 fetch("${STATUS_PATH}?from="+encodeURIComponent(from),{credentials:"same-origin",cache:"no-store"}).then(function(r){return r.json();}).then(function(d){
 if(d.status==="approved"){s.textContent="Approved. Signing in…";location.href=d.next;}
-else if(d.status==="pending"){setTimeout(poll,2500);}
-else if(d.status==="denied"){s.textContent="That permission is no longer valid.";}
+else if(d.status==="pending"){if(d.waitingFor==="person"){s.textContent="Waiting for the person to allow this site in their Assentry app.";}setTimeout(poll,2500);}
+else if(d.status==="denied"){s.textContent=d.reason==="declined"?"The person declined this site.":"That permission is no longer valid.";}
 else if(d.status==="unavailable"){s.textContent="Couldn't reach Assentry. Reload to try again.";}
 else{s.textContent="This code has expired. Reload the page for a new one.";}
 }).catch(function(){setTimeout(poll,5000);});}

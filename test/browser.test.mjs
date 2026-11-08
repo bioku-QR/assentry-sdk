@@ -1,7 +1,7 @@
 // Run with `npm test` (builds first). Uses Node's built-in test runner.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { ensurePendingSignIn, injectSignInBlock } from "../dist/browser.js";
+import { ensurePendingSignIn, handleSignInRoutes, injectSignInBlock, STATUS_PATH } from "../dist/browser.js";
 
 const GOOD_CODE = "asq_" + "ABCD2345".repeat(7).slice(0, 52);
 const REQUEST_ID = "3f2b8c1e-1a2b-4c3d-8e9f-0a1b2c3d4e5f";
@@ -19,6 +19,8 @@ function fakeRes() {
     append(name, value) { if (name === "Set-Cookie") cookies.push(value); },
     getHeader() { return "text/html; charset=utf-8"; },
     send(body) { sent = body; return this; },
+    setHeader() {},
+    json(body) { sent = body; return this; },
   };
 }
 function fakeAssentry() {
@@ -60,4 +62,25 @@ test("the code placed into the page is escaped", () => {
   res.send("<!doctype html><html><body><p>hi</p></body></html>");
   assert.ok(!res.sent.includes("<img src=x"));
   assert.ok(res.sent.includes("&lt;img src=x onerror=alert(1)&gt;"));
+});
+
+test("while the person allows the site, the visitor's pending sign-in is kept for longer", async () => {
+  const value = encodeURIComponent(`${REQUEST_ID}|${GOOD_CODE}|${future()}`);
+  const later = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const assentry = { collectSignIn: async () => ({ status: "pending", expiresAt: later, waitingFor: "person" }) };
+  const req = { ...fakeReq({ cookie: `assentry_sign_in=${value}` }), path: STATUS_PATH, query: {} };
+  const res = fakeRes();
+  await handleSignInRoutes(req, res, assentry, { protectedPaths: [], defaultReturnTo: "/" });
+  assert.deepEqual(res.sent, { status: "pending", waitingFor: "person" });
+  assert.ok(res.cookies[0].includes(encodeURIComponent(later)));
+  assert.match(res.cookies[0], /Max-Age=(59\d|600)/);
+});
+
+test("a site the person declined says so", async () => {
+  const value = encodeURIComponent(`${REQUEST_ID}|${GOOD_CODE}|${future()}`);
+  const assentry = { collectSignIn: async () => ({ status: "denied", reason: "person_declined" }) };
+  const req = { ...fakeReq({ cookie: `assentry_sign_in=${value}` }), path: STATUS_PATH, query: {} };
+  const res = fakeRes();
+  await handleSignInRoutes(req, res, assentry, { protectedPaths: [], defaultReturnTo: "/" });
+  assert.deepEqual(res.sent, { status: "denied", reason: "declined" });
 });
