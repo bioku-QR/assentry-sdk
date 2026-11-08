@@ -1,11 +1,9 @@
 # @assentry/sdk
 
-[MIT licensed](./LICENSE). Server-side SDK for partner sites that accept authorised [Assentry](https://github.com/bioku-QR/assentry) agent traffic. It wraps the `/verify`, `/profile`, and account-linking handshake against the Assentry backend. Install this instead of calling the raw API yourself.
-
-Install from this repo:
+[MIT licensed](./LICENSE). Server-side SDK for partner sites that accept authorised [Assentry](https://assentry.io) agent traffic. It wraps the `/verify`, `/profile`, and account-linking handshake against the Assentry backend. Install this instead of calling the raw API yourself.
 
 ```bash
-npm install github:bioku-QR/assentry-sdk
+npm install @assentry/sdk
 ```
 
 ## Usage
